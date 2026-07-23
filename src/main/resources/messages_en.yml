@@ -1,0 +1,73 @@
+# ============================================================
+#  Haven — player-facing texts (language: en). Format: MiniMessage.
+#  Gradients:  <gradient:#aaaaaa:#bbbbbb>text</gradient>
+#  Hex color:  <#ff8800>text   |   named: <red> <gray> <white> <aqua> ...
+#  Placeholders in braces: {name}, {count}, {id}, {rep}, {limit}.
+#  The prefix below is prepended to every message automatically.
+# ============================================================
+
+# Message format version. Don't edit by hand — the plugin auto-regenerates this
+# file (old one kept as .bak) when the format bumps, so format changes
+# (e.g. legacy -> MiniMessage) never show up to players as raw text.
+config-version: 3
+
+prefix: "<gradient:#7f7fd5:#86a8e7:#91eae4><bold>Haven</bold></gradient> <dark_gray>‹‹</dark_gray> "
+
+common:
+  players-only: "<red>This command is in-game only."
+  player-not-found: "<red>Player not found. <gray>They must have joined the server at least once."
+  cannot-self: "<red>You can't target yourself."
+
+trust:
+  usage-add: "<gray>Usage: <white>/trust name"
+  usage-remove: "<gray>Usage: <white>/untrust name"
+  is-staff: "<gray>That's staff — their access isn't regulated."
+  added: "<gradient:#56ab2f:#a8e063>Done!</gradient> <white>{name}</white> <gray>can now build on and open your chests."
+  removed: "<gold>Access revoked.</gold> <gray><white>{name}</white> no longer has access to your stuff."
+  list-empty: "<gray>You haven't granted access to anyone yet. <white>/trust name</white> <gray>to share."
+  list-header: "<aqua>You trust <dark_gray>··</dark_gray> <white>{count}</white> <gray>players: <white>{names}"
+
+# Native Dialog window (when use-dialog: true). title — header, body — paragraphs,
+# button-commands — label of the button that runs /haven help.
+welcome-dialog:
+  title: "<gradient:#7f7fd5:#91eae4><bold>Haven · build protection</bold></gradient>"
+  button-commands: "<green>Open command list</green>"
+  body:
+    - "<gray>Here everything you build is <green>protected automatically</green> <gray>— no manual claiming."
+    - "<white><bold>Protection.</bold></white> <gray>What you place is yours. Others can't break it or open your chests."
+    - "<white><bold>Trust.</bold></white> <gray><aqua>/trust name</aqua> <gray>lets a friend onto your builds."
+    - "<white><bold>Reports.</bold></white> <gray><aqua>/report name</aqua> <gray>— report a griefer, their reputation drops."
+    - "<white><bold>Reputation.</bold></white> <gray><aqua>/rep</aqua> <gray>— your status. Grows with fair play, falls for griefing."
+    - "<white><bold>Access.</bold></white> <gray><aqua>/access</aqua> <gray>— when TNT, lava and other dangerous things unlock."
+    - "<white><bold>Decay.</bold></white> <gray>Stay away too long and your builds' protection lifts. Drop by sometimes."
+    - "<gray>Hit the button below to see all commands. Good luck on the server! <gradient:#56ab2f:#a8e063>✦</gradient>"
+
+# New-player chat guide (fallback + /haven help).
+# Each line is a separate message. Commands are clickable: click fills the chat.
+welcome:
+  - ""
+  - "<gradient:#7f7fd5:#86a8e7:#91eae4><bold>✦ Welcome! ✦</bold></gradient>"
+  - "<dark_gray><strikethrough>                                        </strikethrough>"
+  - "<gray>This server runs <white>Haven</white> <gray>— build protection."
+  - "<gray>Everything you build and place is <green>protected automatically<gray>:"
+  - "<gray>others <red>can't break<gray> or <red>open<gray> your stuff. No manual claiming."
+  - ""
+  - "<aqua><bold>Useful commands</bold></aqua> <dark_gray>(click to fill in)<aqua>:"
+  - "<click:suggest_command:'/trust '><hover:show_text:'<gray>Give a friend access to your chests'><white>/trust name</white></hover></click> <dark_gray>··</dark_gray> <gray>let a friend onto your builds"
+  - "<click:suggest_command:'/untrust '><hover:show_text:'<gray>Revoke access'><white>/untrust name</white></hover></click> <dark_gray>··</dark_gray> <gray>take access back"
+  - "<click:suggest_command:'/report '><hover:show_text:'<gray>Report a griefer'><white>/report name</white></hover></click> <dark_gray>··</dark_gray> <gray>report a griefer"
+  - "<click:run_command:'/rep'><hover:show_text:'<gray>Your reputation'><white>/rep</white></hover></click> <dark_gray>··</dark_gray> <gray>check your reputation"
+  - "<click:run_command:'/access'><hover:show_text:'<gray>Access to dangerous mechanics'><white>/access</white></hover></click> <dark_gray>··</dark_gray> <gray>when TNT, lava, etc. unlock"
+  - "<click:run_command:'/haven help'><hover:show_text:'<gray>Show this menu again'><white>/haven help</white></hover></click> <dark_gray>··</dark_gray> <gray>open this guide again"
+  - "<dark_gray><strikethrough>                                        </strikethrough>"
+  - "<gray>Build in peace and respect others. <gradient:#56ab2f:#a8e063>Good luck!</gradient>"
+  - ""
+
+report:
+  usage: "<gray>Usage: <white>/report name reason"
+  cannot-self: "<red>You can't report yourself."
+  is-staff: "<red>You can't report staff."
+  cooldown: "<red>Too soon. <gray>Wait before reporting this player again."
+  daily-limit: "<red>Daily report limit reached <dark_gray>··</dark_gray> <white>{limit}</white> <gray>per day. Real griefing — call an admin."
+  sent: "<gradient:#56ab2f:#a8e063>Report sent.</gradient> <gray>Incident <white>#{id}</white>. Thanks for the heads-up!"
+  culprit-warned: "<gradient:#cb2d3e:#ef473a>⚠ You've been reported for griefing.</gradient> <gray>Calm down — your reputation is dropping. Now <white>{rep}</white>."

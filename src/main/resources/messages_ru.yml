@@ -1,0 +1,74 @@
+# ============================================================
+#  Haven — тексты для игроков (язык: ru). Формат: MiniMessage.
+#  Градиенты:  <gradient:#aaaaaa:#bbbbbb>текст</gradient>
+#  Hex-цвет:   <#ff8800>текст   |   именованные: <red> <gray> <white> <aqua> ...
+#  Плейсхолдеры в фигурных скобках: {name}, {count}, {id}, {rep}, {limit}.
+#  Префикс (ниже) подставляется ко всем сообщениям автоматически.
+# ============================================================
+
+# Версия формата сообщений. НЕ менять вручную — при росте плагин авто-регенерирует
+# этот файл (старый сохранится как .bak), чтобы обновления формата (например legacy→MiniMessage)
+# не показывались игрокам как сырой текст.
+config-version: 3
+
+# Градиентный логотип без «колхозных» квадратных скобок + тонкий разделитель.
+prefix: "<gradient:#7f7fd5:#86a8e7:#91eae4><bold>Haven</bold></gradient> <dark_gray>‹‹</dark_gray> "
+
+common:
+  players-only: "<red>Эта команда доступна только в игре."
+  player-not-found: "<red>Игрок не найден. <gray>Он должен зайти на сервер хотя бы раз."
+  cannot-self: "<red>Нельзя выбрать самого себя."
+
+trust:
+  usage-add: "<gray>Использование: <white>/trust ник"
+  usage-remove: "<gray>Использование: <white>/untrust ник"
+  is-staff: "<gray>Это администрация — её доступ не регулируется."
+  added: "<gradient:#56ab2f:#a8e063>Готово!</gradient> <white>{name}</white> <gray>теперь может строить и открывать ваши сундуки."
+  removed: "<gold>Доступ забран.</gold> <gray>У игрока <white>{name}</white> больше нет доступа к вашему."
+  list-empty: "<gray>Вы пока никому не выдали доступ. <white>/trust ник</white> <gray>— поделиться."
+  list-header: "<aqua>Вы доверяете <dark_gray>··</dark_gray> <white>{count}</white> <gray>игрокам: <white>{names}"
+
+# Нативное Dialog-окно (если use-dialog: true). title — заголовок, body — абзацы рассказа,
+# button-commands — текст кнопки, открывающей /haven help.
+welcome-dialog:
+  title: "<gradient:#7f7fd5:#91eae4><bold>Haven · защита построек</bold></gradient>"
+  button-commands: "<green>Открыть список команд</green>"
+  body:
+    - "<gray>Здесь все твои постройки <green>под защитой автоматически</green> <gray>— клеймить вручную не нужно."
+    - "<white><bold>Приваты.</bold></white> <gray>Что поставил — то твоё. Чужие не сломают и не залезут в сундуки."
+    - "<white><bold>Доверие.</bold></white> <gray>Команда <aqua>/trust ник</aqua> <gray>пускает друга к твоим постройкам."
+    - "<white><bold>Жалобы.</bold></white> <gray><aqua>/report ник</aqua> <gray>— пожаловаться на грифера, его репутация падает."
+    - "<white><bold>Репутация.</bold></white> <gray><aqua>/rep</aqua> <gray>— твой статус. Растёт за честную игру, падает за гриф."
+    - "<white><bold>Доступ.</bold></white> <gray><aqua>/access</aqua> <gray>— когда откроются TNT, лава и прочие опасные вещи."
+    - "<white><bold>Заброшенное.</bold></white> <gray>Долго не заходишь — защита построек спадёт. Заглядывай иногда."
+    - "<gray>Нажми кнопку ниже, чтобы увидеть все команды. Удачи на сервере! <gradient:#56ab2f:#a8e063>✦</gradient>"
+
+# Гайд новичку в чат (fallback + /haven help).
+# Каждая строка — отдельное сообщение. Команды кликабельны: клик подставляет в чат.
+welcome:
+  - ""
+  - "<gradient:#7f7fd5:#86a8e7:#91eae4><bold>✦ Добро пожаловать! ✦</bold></gradient>"
+  - "<dark_gray><strikethrough>                                        </strikethrough>"
+  - "<gray>На сервере работает <white>Haven</white> <gray>— защита построек."
+  - "<gray>Всё, что ты строишь и ставишь, <green>защищено автоматически<gray>:"
+  - "<gray>чужие <red>не сломают<gray> и <red>не откроют<gray> твоё. Клеймить вручную не нужно."
+  - ""
+  - "<aqua><bold>Полезные команды</bold></aqua> <dark_gray>(кликни, чтобы ввести)<aqua>:"
+  - "<click:suggest_command:'/trust '><hover:show_text:'<gray>Дать другу доступ к своим сундукам'><white>/trust ник</white></hover></click> <dark_gray>··</dark_gray> <gray>пустить друга к своим постройкам"
+  - "<click:suggest_command:'/untrust '><hover:show_text:'<gray>Забрать доступ'><white>/untrust ник</white></hover></click> <dark_gray>··</dark_gray> <gray>забрать доступ обратно"
+  - "<click:suggest_command:'/report '><hover:show_text:'<gray>Пожаловаться на грифера'><white>/report ник</white></hover></click> <dark_gray>··</dark_gray> <gray>пожаловаться на грифера"
+  - "<click:run_command:'/rep'><hover:show_text:'<gray>Твоя репутация'><white>/rep</white></hover></click> <dark_gray>··</dark_gray> <gray>посмотреть свою репутацию"
+  - "<click:run_command:'/access'><hover:show_text:'<gray>Доступ к опасным механикам'><white>/access</white></hover></click> <dark_gray>··</dark_gray> <gray>когда откроются TNT, лава и прочее"
+  - "<click:run_command:'/haven help'><hover:show_text:'<gray>Показать это меню снова'><white>/haven help</white></hover></click> <dark_gray>··</dark_gray> <gray>открыть эту памятку ещё раз"
+  - "<dark_gray><strikethrough>                                        </strikethrough>"
+  - "<gray>Строй спокойно и уважай чужое. <gradient:#56ab2f:#a8e063>Удачи!</gradient>"
+  - ""
+
+report:
+  usage: "<gray>Использование: <white>/report ник причина"
+  cannot-self: "<red>На себя жаловаться нельзя."
+  is-staff: "<red>На администрацию жаловаться нельзя."
+  cooldown: "<red>Слишком часто. <gray>Подождите перед следующей жалобой на этого игрока."
+  daily-limit: "<red>Дневной лимит жалоб исчерпан <dark_gray>··</dark_gray> <white>{limit}</white> <gray>в сутки. Реальный гриф — позовите админа."
+  sent: "<gradient:#56ab2f:#a8e063>Жалоба отправлена.</gradient> <gray>Инцидент <white>#{id}</white>. Спасибо за бдительность!"
+  culprit-warned: "<gradient:#cb2d3e:#ef473a>⚠ На вас пожаловались за гриф.</gradient> <gray>Ведите себя спокойнее — репутация падает. Сейчас <white>{rep}</white>."

@@ -1,0 +1,59 @@
+name: Haven
+version: '${project.version}'
+main: ru.haven.Haven
+api-version: '1.21'
+author: mieto
+description: Anti-grief via container locking, personal trust and reputation.
+softdepend: [PlaceholderAPI, CoreProtect, TAB]
+
+# Динамическая загрузка JDBC-драйвера для MySQL/MariaDB (Paper Maven library loader).
+# Драйвер качается при первом старте плагина и не shaded — exact size jar минимален для SQLite-only.
+# SQLite-jdbc shipped с Paper 1.21+, поэтому здесь не нужен.
+libraries:
+  - org.mariadb.jdbc:mariadb-java-client:3.5.6
+
+commands:
+  trust:
+    description: Дать игроку доступ к своим сундукам/блокам
+    usage: /trust <ник>
+    aliases: [доверять]
+  untrust:
+    description: Забрать доступ
+    usage: /untrust <ник>
+    aliases: [недоверять]
+  trustlist:
+    description: Кому я доверяю
+    usage: /trustlist
+    aliases: [доверенные]
+  rep:
+    description: Репутация игрока
+    usage: /rep [ник]
+    aliases: [реп]
+  report:
+    description: Пожаловаться на гриф
+    usage: /report <ник> [причина]
+    aliases: [жалоба]
+  access:
+    description: Сколько осталось наиграть для доступа к опасным механикам
+    usage: /access
+    aliases: [доступ, наиграно]
+  haven:
+    description: Haven — гайд (/haven help) и админ-команды
+    usage: /haven help | /haven <reload|info|reports|...>
+    aliases: [hv]
+    # БЕЗ permission на самой команде: /haven help доступен всем,
+    # а админ-подкоманды гейтятся внутри (проверка haven.admin в коде).
+  hpvp:
+    description: Внутренняя команда для кнопок в чате после PvP-смерти ([Был бой] / [Нападение])
+    usage: /hpvp accept|complain <id>
+
+permissions:
+  haven.admin:
+    description: Доступ к админ-командам Haven
+    default: op
+  haven.staff:
+    description: Полный иммунитет к системе (альтернатива списку staff в конфиге)
+    default: false
+  haven.pvp.bypass:
+    description: Не получает PvP-inquiry за убийство (для дуэль-арен, мини-игр)
+    default: false

@@ -1,0 +1,21 @@
+# Build
+target/
+*.class
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Plugin runtime data
+*.db
+plugins/
+logs/
+
+# Локальный тест-сервер (smoke-тест)
+testserver/
+
+# OS
+.DS_Store
+Thumbs.db

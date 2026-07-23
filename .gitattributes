@@ -1,0 +1,10 @@
+# Нормализация переводов строк: в репозитории — LF, чекаут — по платформе.
+* text=auto eol=lf
+
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Бинарные артефакты
+*.jar binary
+*.db  binary
+*.png binary
