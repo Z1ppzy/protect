@@ -7,6 +7,7 @@ import ru.haven.Settings;
 import ru.haven.util.BlockKey;
 
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -16,11 +17,14 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * MySQL/MariaDB-бэкенд через HikariCP.
@@ -40,9 +44,14 @@ import java.util.logging.Logger;
  */
 public class MysqlStorage implements Storage {
 
+    /** Версия MySQL, с которой доступен алиас вставляемой строки: {@code INSERT ... AS new}. */
+    private static final Pattern VERSION = Pattern.compile("^(\\d+)\\.(\\d+)\\.(\\d+)");
+
     private final HikariDataSource pool;
     private final Logger logger;
     private final String backendLabel;
+    /** См. {@link #detectRowAlias()}: какой диалект UPSERT понимает конкретный сервер. */
+    private final boolean rowAlias;
 
     public MysqlStorage(Settings s, Logger logger) throws SQLException {
         this.logger = logger != null ? logger : Logger.getLogger("Haven");
@@ -61,22 +70,32 @@ public class MysqlStorage implements Storage {
         this.backendLabel = (useMariaDriver ? "MariaDB" : "MySQL") + " " + s.mysqlHost + ":" + s.mysqlPort
                 + "/" + s.mysqlDatabase;
 
-        String url = urlPrefix + s.mysqlHost + ":" + s.mysqlPort + "/" + s.mysqlDatabase
+        String base = urlPrefix + s.mysqlHost + ":" + s.mysqlPort + "/" + s.mysqlDatabase
                 + "?useUnicode=true&characterEncoding=utf8mb4"
-                + "&useSSL=" + s.mysqlUseSsl
+                + "&useSSL=" + s.mysqlUseSsl;
+        // Параметры из конфига идут последними — чтобы админ мог перебить любой наш дефолт.
+        String extra = s.mysqlExtraParams == null || s.mysqlExtraParams.isBlank() ? ""
+                : (s.mysqlExtraParams.startsWith("&") ? "" : "&") + s.mysqlExtraParams;
+
+        // Диалект UPSERT задаёт сервер, а не драйвер, поэтому спрашиваем версию отдельным
+        // коротким коннектом — до пула, потому что от ответа зависят и флаги в URL.
+        this.rowAlias = detectRowAlias(base + extra, s.mysqlUser, s.mysqlPassword);
+
+        String url = base
                 // Performance flags — см. MySQL Connector/J Performance Extensions docs.
-                + "&rewriteBatchedStatements=true"
+                // rewriteBatchedStatements склеивает батч в multi-values INSERT и спотыкается о
+                // legacy VALUES(col) в ON DUPLICATE KEY UPDATE → включаем только для new.col-диалекта.
+                // На MariaDB батчи и без него идут пачкой (bulk-протокол, useBulkStmts).
+                + "&rewriteBatchedStatements=" + rowAlias
                 + "&cachePrepStmts=true"
                 + "&useServerPrepStmts=true"
                 + "&prepStmtCacheSize=250"
                 + "&prepStmtCacheSqlLimit=2048"
                 + "&useLocalSessionState=true"
                 + "&cacheServerConfiguration=true"
-                + "&cacheResultSetMetadata=true";
-        if (!useMariaDriver) url += "&permitMysqlScheme=true"; // no-op для cj
-        if (s.mysqlExtraParams != null && !s.mysqlExtraParams.isBlank()) {
-            url += (s.mysqlExtraParams.startsWith("&") ? "" : "&") + s.mysqlExtraParams;
-        }
+                + "&cacheResultSetMetadata=true"
+                + (useMariaDriver ? "" : "&permitMysqlScheme=true") // no-op для cj
+                + extra;
 
         hc.setJdbcUrl(url);
         hc.setUsername(s.mysqlUser);
@@ -95,6 +114,52 @@ public class MysqlStorage implements Storage {
 
     private boolean driverAvailable(String fqn) {
         try { Class.forName(fqn); return true; } catch (ClassNotFoundException e) { return false; }
+    }
+
+    /**
+     * Понимает ли сервер алиас вставляемой строки
+     * ({@code INSERT ... AS new ... ON DUPLICATE KEY UPDATE col=new.col})?
+     *
+     * <p>Это синтаксис MySQL 8.0.19+. MariaDB его не поддерживает ни в одной версии и отвечает
+     * «You have an error in your SQL syntax», поэтому для неё (и для старых MySQL) остаётся
+     * legacy-форма {@code VALUES(col)} — её понимают оба сервера. Драйвер тут не показатель:
+     * mariadb-java-client спокойно ходит и в MySQL, так что спрашиваем сам сервер.</p>
+     *
+     * <p>Не достучались — берём совместимый путь: он рабочий везде, просто медленнее на батчах.
+     * Реальную ошибку подключения всё равно поднимет Hikari следующей строкой.</p>
+     */
+    private boolean detectRowAlias(String url, String user, String password) {
+        try (Connection c = DriverManager.getConnection(url, user, password)) {
+            String v = c.getMetaData().getDatabaseProductVersion();
+            if (v == null || v.toLowerCase(Locale.ROOT).contains("mariadb")) return false;
+            return atLeast(v, 8, 0, 19);
+        } catch (SQLException e) {
+            logger.log(Level.WARNING, "Haven MySQL: не удалось определить версию сервера — "
+                    + "используем совместимый синтаксис UPSERT", e);
+            return false;
+        }
+    }
+
+    /** Сравнение версии вида {@code 8.0.36-log} с порогом. Нераспознанное → false (совместимый путь). */
+    private static boolean atLeast(String version, int major, int minor, int patch) {
+        Matcher m = VERSION.matcher(version);
+        if (!m.find()) return false;
+        int[] got = {Integer.parseInt(m.group(1)), Integer.parseInt(m.group(2)), Integer.parseInt(m.group(3))};
+        int[] need = {major, minor, patch};
+        for (int i = 0; i < 3; i++) {
+            if (got[i] != need[i]) return got[i] > need[i];
+        }
+        return true;
+    }
+
+    /** {@code AS new} перед ON DUPLICATE KEY UPDATE — только там, где сервер его понимает. */
+    private String rowAliasClause() {
+        return rowAlias ? " AS new " : " ";
+    }
+
+    /** Ссылка на значение вставляемой строки внутри ON DUPLICATE KEY UPDATE. */
+    private String inserted(String column) {
+        return rowAlias ? "new." + column : "VALUES(" + column + ")";
     }
 
     private void init() throws SQLException {
@@ -203,12 +268,9 @@ public class MysqlStorage implements Storage {
             c.setAutoCommit(false);
             try {
                 if (!writes.isEmpty()) {
-                    // AS new ... = new.col — современный синтаксис (MySQL 8.0.19+, MariaDB 10.3.3+).
-                    // Старый "VALUES(col)" внутри ODKU несовместим с rewriteBatchedStatements
-                    // у MariaDB Connector (BatchUpdateException: SQL syntax error).
                     try (PreparedStatement p = c.prepareStatement(
-                            "INSERT INTO block_owners(world,x,y,z,owner) VALUES(?,?,?,?,?) AS new "
-                                    + "ON DUPLICATE KEY UPDATE owner=new.owner")) {
+                            "INSERT INTO block_owners(world,x,y,z,owner) VALUES(?,?,?,?,?)" + rowAliasClause()
+                                    + "ON DUPLICATE KEY UPDATE owner=" + inserted("owner"))) {
                         for (Map.Entry<BlockKey, UUID> e : writes.entrySet()) {
                             BlockKey k = e.getKey();
                             p.setString(1, k.world().toString());
@@ -298,9 +360,13 @@ public class MysqlStorage implements Storage {
             c.setAutoCommit(false);
             try {
                 try (PreparedStatement p = c.prepareStatement(
-                        "INSERT INTO players(uuid,name,playtime_min,bypass,verified,last_login_ts) VALUES(?,?,?,?,?,?) AS new "
-                                + "ON DUPLICATE KEY UPDATE name=new.name, playtime_min=new.playtime_min, "
-                                + "bypass=new.bypass, verified=new.verified, last_login_ts=new.last_login_ts")) {
+                        "INSERT INTO players(uuid,name,playtime_min,bypass,verified,last_login_ts) VALUES(?,?,?,?,?,?)"
+                                + rowAliasClause()
+                                + "ON DUPLICATE KEY UPDATE name=" + inserted("name")
+                                + ", playtime_min=" + inserted("playtime_min")
+                                + ", bypass=" + inserted("bypass")
+                                + ", verified=" + inserted("verified")
+                                + ", last_login_ts=" + inserted("last_login_ts"))) {
                     for (PlayerRow r : rows) {
                         p.setString(1, r.uuid.toString()); p.setString(2, r.name);
                         p.setInt(3, r.playtimeMin); p.setInt(4, r.bypass ? 1 : 0); p.setInt(5, r.verified ? 1 : 0);
@@ -416,9 +482,13 @@ public class MysqlStorage implements Storage {
             c.setAutoCommit(false);
             try {
                 try (PreparedStatement p = c.prepareStatement(
-                        "INSERT INTO intrusion_events(owner,actor,action,world,x,y,z,count,ts) " +
-                                "VALUES(?,?,?,?,?,?,?,?,?) AS new ON DUPLICATE KEY UPDATE " +
-                                "count=count+new.count, x=new.x, y=new.y, z=new.z, ts=new.ts")) {
+                        "INSERT INTO intrusion_events(owner,actor,action,world,x,y,z,count,ts) "
+                                + "VALUES(?,?,?,?,?,?,?,?,?)" + rowAliasClause()
+                                + "ON DUPLICATE KEY UPDATE count=count+" + inserted("count")
+                                + ", x=" + inserted("x")
+                                + ", y=" + inserted("y")
+                                + ", z=" + inserted("z")
+                                + ", ts=" + inserted("ts"))) {
                     for (IntrusionRow r : rows) {
                         p.setString(1, r.owner.toString()); p.setString(2, r.actor.toString());
                         p.setString(3, r.action); p.setString(4, r.world);
