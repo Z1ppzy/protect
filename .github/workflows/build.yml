@@ -59,7 +59,7 @@ jobs:
       # Один и тот же тег dev: старый релиз сносим вместе с тегом, новый встаёт на его место.
       # В разделе Releases всегда ровно одна свежая сборка с main — ничего не копится.
       - name: Обновить dev-сборку
-        if: github.event_name == 'push'
+        if: github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
           JAR: ${{ steps.jar.outputs.path }}
