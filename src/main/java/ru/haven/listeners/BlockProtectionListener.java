@@ -136,22 +136,33 @@ public class BlockProtectionListener implements Listener {
         Notify.owner(store, owner, e.getPlayer(), "сломать");
     }
 
-    /**
-     * Запрет открытия чужих дверей/люков/калиток. Дверь — 2 блока: клик по любой половине
-     * толкает всю дверь, поэтому проверяем ОБЕ половины (через {@link #blockingOwner}), иначе
-     * игрок открывал бы чужую дверь, кликнув по неотслеженной половине.
+   /**
+     * Запрет открытия чужих дверей/люков/калиток. Проверяем обе половины двери сразу,
+     * чтобы они открывались синхронно и не «разваливались».
      */
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void onOpenInteract(PlayerInteractEvent e) {
         if (e.getAction() != Action.RIGHT_CLICK_BLOCK) return;
-        if (e.getHand() != EquipmentSlot.HAND) return; // PIE стреляет дважды (main+off hand)
-        if (!store.settings().protectBlocks) return; // защита построек выключена
+        if (e.getHand() != EquipmentSlot.HAND) return; 
+        if (!store.settings().protectBlocks) return; 
         Block b = e.getClickedBlock();
-        if (b == null || !(b.getBlockData() instanceof Openable)) return; // только двери/люки/калитки
+        if (b == null || !(b.getBlockData() instanceof Openable)) return;
 
         Player p = e.getPlayer();
+        
+        // Проверяем владельца основной половины
         UUID blockingOwner = blockingOwner(b, p);
+        
+        // Если есть вторая связанная половина (верх/низ двери), проверяем и её тоже
+        if (blockingOwner == null) {
+            Block linked = linkedBlock(b);
+            if (linked != null) {
+                blockingOwner = blockingOwner(linked, p);
+            }
+        }
+
         if (blockingOwner == null) return;
+        
         e.setCancelled(true);
         Msg.send(p, store.settings().prefix + "&cЭто чужой блок — открывать нельзя.");
         store.debug(() -> "OPEN(door) denied: " + p.getName() + " -> owner " + blockingOwner + " at " + loc(b));
@@ -170,11 +181,56 @@ public class BlockProtectionListener implements Listener {
         store.debug(() -> "FARMLAND entity trample denied: " + e.getEntityType() + " at " + loc(b));
     }
 
-    /** Мобы (эндермен и пр.) не трогают чужие блоки. Падающие owned-блоки не даём превратить в stale AIR-owner. */
-    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+   /** Мобы (эндермен и пр.) не трогают чужие блоки. Падающие owned-блоки не даём превратить в stale AIR-owner. */
+  @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void onPhysics(BlockPhysicsEvent e) {
         if (!store.settings().protectBlocks) return;
+        
+        // Разрешаем физику для поршней
+        if (e.getSourceBlock().getType().name().contains("PISTON")) {
+            return;
+        }
+
+        Block source = e.getSourceBlock();
+        
+        // Разрешаем физику от воды или лавы
+        if (source != null && (source.isLiquid() || source.getType().name().contains("WATER") || source.getType().name().contains("LAVA"))) {
+            return;
+        }
+
         Block b = e.getBlock();
+        String typeName = b.getType().name();
+
+        // Проверка для сыпучих блоков
+        boolean isFallingBlock = typeName.contains("SAND") 
+                || typeName.contains("GRAVEL") 
+                || typeName.contains("CONCRETE_POWDER") 
+                || typeName.contains("ANVIL") 
+                || typeName.contains("DRAGON_EGG")
+                || typeName.contains("POINTED_DRIPSTONE");
+
+        // РАЗРЕШАЕМ ФИЗИКУ ДЛЯ:
+        // - Большого твердолиста (бросянки)
+        // - Кувшинок (для лодок)
+        // - Рельсов (для развилок)
+        // - Дверей, люков и калиток (от редстоуна)
+        // - Огня (для тушения водой)
+        // - Украшенных ваз
+        // - Свечей (чтобы при поджоге менялась анимация и они начинали гореть)
+        // - Сыпучих блоков
+        if (typeName.contains("BIG_DRIPLEAF") 
+                || typeName.contains("WATER_LILY") 
+                || typeName.contains("RAIL")
+                || typeName.contains("DOOR") 
+                || typeName.contains("TRAPDOOR") 
+                || typeName.contains("GATE")
+                || typeName.contains("FIRE")
+                || typeName.contains("DECORATED_POT")
+                || typeName.contains("CANDLE")
+                || isFallingBlock) {
+            return;
+        }
+
         if (firstOwner(b) == null) return;
         if (isPhysicsSensitive(b)) {
             e.setCancelled(true);
@@ -271,4 +327,33 @@ public class BlockProtectionListener implements Listener {
     private static String loc(Block b) {
         return b.getWorld().getName() + " " + b.getX() + "," + b.getY() + "," + b.getZ();
     }
+
+  @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    public void onCopperAndStatueInteract(PlayerInteractEvent e) {
+        if (e.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+        Block b = e.getClickedBlock();
+        if (b == null) return;
+        
+        String typeName = b.getType().name();
+        
+        // Разрешаем переключать позы медного голема или чистить медь топором
+        if (typeName.contains("COPPER") || typeName.contains("COPPER_GOLEM_STATUE")) {
+            Player p = e.getPlayer();
+            UUID blockingOwner = blockingOwner(b, p);
+            
+            // Если игрок кликает топором (чтобы счистить окисление/воск) или это статуя голема
+            if (p.getInventory().getItemInMainHand().getType().name().contains("AXE") || typeName.contains("COPPER_GOLEM_STATUE")) {
+                
+                if (blockingOwner != null) {
+                    e.setCancelled(true);
+                    Msg.send(p, store.settings().prefix + "&cЭто чужой блок — взаимодействовать нельзя.");
+                    store.debug(() -> "COPPER interact denied: " + p.getName() + " -> owner " + blockingOwner + " at " + loc(b));
+                } else {
+                    store.debug(() -> "COPPER interact allowed: " + p.getName() + " at " + loc(b));
+                    // Мы НЕ отменяем событие, если у игрока есть доступ, позволяя топору сработать!
+                }
+            }
+        }
+    }
+
 }
