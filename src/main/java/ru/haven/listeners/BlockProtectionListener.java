@@ -136,37 +136,33 @@ public class BlockProtectionListener implements Listener {
         Notify.owner(store, owner, e.getPlayer(), "сломать");
     }
 
-   /**
+    /**
      * Запрет открытия чужих дверей/люков/калиток. Проверяем обе половины двери сразу,
      * чтобы они открывались синхронно и не «разваливались».
      */
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void onOpenInteract(PlayerInteractEvent e) {
         if (e.getAction() != Action.RIGHT_CLICK_BLOCK) return;
-        if (e.getHand() != EquipmentSlot.HAND) return; 
-        if (!store.settings().protectBlocks) return; 
+        if (e.getHand() != EquipmentSlot.HAND) return;
+        if (!store.settings().protectBlocks) return;
         Block b = e.getClickedBlock();
         if (b == null || !(b.getBlockData() instanceof Openable)) return;
 
         Player p = e.getPlayer();
-        
-        // Проверяем владельца основной половины
-        UUID blockingOwner = blockingOwner(b, p);
-        
-        // Если есть вторая связанная половина (верх/низ двери), проверяем и её тоже
-        if (blockingOwner == null) {
-            Block linked = linkedBlock(b);
-            if (linked != null) {
-                blockingOwner = blockingOwner(linked, p);
-            }
-        }
 
-        if (blockingOwner == null) return;
-        
+        // Владелец основной половины; если она свободна — смотрим вторую (верх/низ двери).
+        UUID blocking = blockingOwner(b, p);
+        if (blocking == null) {
+            Block linked = linkedBlock(b);
+            if (linked != null) blocking = blockingOwner(linked, p);
+        }
+        if (blocking == null) return;
+        UUID owner = blocking; // effectively final — нужен в лямбде debug()
+
         e.setCancelled(true);
         Msg.send(p, store.settings().prefix + "&cЭто чужой блок — открывать нельзя.");
-        store.debug(() -> "OPEN(door) denied: " + p.getName() + " -> owner " + blockingOwner + " at " + loc(b));
-        Notify.owner(store, blockingOwner, p, "открыть");
+        store.debug(() -> "OPEN(door) denied: " + p.getName() + " -> owner " + owner + " at " + loc(b));
+        Notify.owner(store, owner, p, "открыть");
     }
 
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
