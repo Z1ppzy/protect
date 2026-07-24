@@ -8,6 +8,7 @@ import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.FallingBlock;
 import org.bukkit.entity.minecart.StorageMinecart;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -20,6 +21,7 @@ import org.bukkit.event.block.BlockPhysicsEvent;
 import org.bukkit.event.block.BlockPistonExtendEvent;
 import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.event.entity.EntityPlaceEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
@@ -154,8 +156,12 @@ class HavenPluginTest {
                 "cancelled break must keep ownership");
     }
 
+    /**
+     * Сыпучим блокам физика разрешена (иначе песок «висит» после соседних правок), а от падения
+     * чужой блок держит уже {@code onEntityChangeBlock}: FallingBlock не спавнится, владелец не протухает.
+     */
     @Test
-    void ownedGravityBlockPhysicsIsCancelled() {
+    void ownedGravityBlockDoesNotTurnIntoFallingEntity() {
         WorldMock world = server.addSimpleWorld("world");
         PlayerMock alice = server.addPlayer("Alice");
 
@@ -163,10 +169,12 @@ class HavenPluginTest {
         sand.setType(Material.SAND);
         plugin.store().setOwner(BlockKey.of(sand), alice.getUniqueId());
 
-        BlockPhysicsEvent ev = new BlockPhysicsEvent(sand, sand.getBlockData());
+        FallingBlock fb = world.spawnFallingBlock(sand.getLocation(), sand.getBlockData());
+        EntityChangeBlockEvent ev = new EntityChangeBlockEvent(fb, sand, Material.AIR.createBlockData());
         server.getPluginManager().callEvent(ev);
 
         assertTrue(ev.isCancelled(), "owned gravity block must not fall and desync BlockKey ownership");
+        assertEquals(alice.getUniqueId(), plugin.store().getOwner(BlockKey.of(sand)), "владелец сохраняется");
     }
 
     @Test
