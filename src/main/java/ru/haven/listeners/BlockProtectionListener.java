@@ -94,7 +94,7 @@ public class BlockProtectionListener implements Listener {
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void onBreak(BlockBreakEvent e) {
         Block b = e.getBlock();
-        UUID owner = firstOwner(b);
+        UUID owner = null;
         if (owner == null) return; // природный/неотслеживаемый блок — копай свободно
         boolean container = store.settings().isProtectable(b.getType());
         if (!container && !store.settings().protectBlocks) return; // защита построек выключена
